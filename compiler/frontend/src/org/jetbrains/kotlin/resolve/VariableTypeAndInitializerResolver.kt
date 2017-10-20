@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -155,5 +155,6 @@ class VariableTypeAndInitializerResolver(
         return approximateType(expressionTypingServices.safeGetType(scope, initializer, TypeUtils.NO_EXPECTED_TYPE, dataFlowInfo, trace), local)
     }
 
-    private fun approximateType(type: KotlinType, local: Boolean): UnwrappedType = typeApproximator.approximateDeclarationType(type, local)
+    private fun approximateType(type: KotlinType, local: Boolean): UnwrappedType =
+            typeApproximator.approximateDeclarationType(type, local, expressionTypingServices.languageVersionSettings)
 }

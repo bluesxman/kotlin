@@ -38,7 +38,6 @@ import org.jetbrains.kotlin.resolve.calls.callResolverUtil.isInfixCall
 import org.jetbrains.kotlin.resolve.calls.callUtil.createLookupLocation
 import org.jetbrains.kotlin.resolve.calls.context.*
 import org.jetbrains.kotlin.resolve.calls.inference.CoroutineInferenceSupport
-import org.jetbrains.kotlin.resolve.calls.model.KotlinCallKind
 import org.jetbrains.kotlin.resolve.calls.model.*
 import org.jetbrains.kotlin.resolve.calls.results.OverloadResolutionResultsImpl
 import org.jetbrains.kotlin.resolve.calls.results.ResolutionResultsHandler
@@ -313,6 +312,9 @@ class NewResolutionOldInference(
         override val lexicalScope: LexicalScope get() = resolutionContext.scope
 
         override val isDebuggerContext: Boolean get() = resolutionContext.isDebuggerContext
+
+        override val isNewInferenceEnabled: Boolean
+            get() = resolutionContext.languageVersionSettings.supportsFeature(LanguageFeature.NewInference)
     }
 
     internal data class MyCandidate(
