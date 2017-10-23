@@ -31,6 +31,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.kotlin.backend.common.output.OutputFile;
 import org.jetbrains.kotlin.backend.common.output.SimpleOutputFileCollection;
+import org.jetbrains.kotlin.checkers.BaseDiagnosticsTest;
 import org.jetbrains.kotlin.checkers.CheckerTestUtil;
 import org.jetbrains.kotlin.cli.common.CLIConfigurationKeys;
 import org.jetbrains.kotlin.cli.common.output.outputUtils.OutputUtilsKt;
@@ -161,8 +162,9 @@ public abstract class CodegenTestCase extends KtUsefulTestCase {
             @NotNull List<TestFile> testFilesWithConfigurationDirectives,
             @NotNull CompilerConfiguration configuration
     ) {
+        LanguageVersionSettings explicitLanguageVersionSettings = null;
+
         List<String> kotlinConfigurationFlags = new ArrayList<>(0);
-        LanguageVersion explicitLanguageVersion = null;
         for (TestFile testFile : testFilesWithConfigurationDirectives) {
             kotlinConfigurationFlags.addAll(InTextDirectivesUtils.findListWithPrefixes(testFile.content, "// KOTLIN_CONFIGURATION_FLAGS:"));
 
@@ -174,18 +176,16 @@ public abstract class CodegenTestCase extends KtUsefulTestCase {
                 configuration.put(JVMConfigurationKeys.JVM_TARGET, jvmTarget);
             }
 
-            String version = InTextDirectivesUtils.findStringWithPrefixes(testFile.content, "// LANGUAGE_VERSION:");
-            if (version != null) {
-                assert explicitLanguageVersion == null : "Should not specify LANGUAGE_VERSION twice";
-                explicitLanguageVersion = LanguageVersion.fromVersionString(version);
+            Map<String, String> directives = KotlinTestUtils.parseDirectives(testFile.content);
+            LanguageVersionSettings fileLanguageVersionSettings = BaseDiagnosticsTest.Companion.parseLanguageVersionSettings(directives);
+            if (fileLanguageVersionSettings != null) {
+                assert explicitLanguageVersionSettings == null : "Should not specify // !LANGUAGE twice";
+                explicitLanguageVersionSettings = fileLanguageVersionSettings;
             }
         }
 
-        if (explicitLanguageVersion != null) {
-            CommonConfigurationKeysKt.setLanguageVersionSettings(
-                    configuration,
-                    new LanguageVersionSettingsImpl(explicitLanguageVersion, ApiVersion.createByLanguageVersion(explicitLanguageVersion))
-            );
+        if (explicitLanguageVersionSettings != null) {
+            CommonConfigurationKeysKt.setLanguageVersionSettings(configuration, explicitLanguageVersionSettings);
         }
 
         updateConfigurationWithFlags(configuration, kotlinConfigurationFlags);

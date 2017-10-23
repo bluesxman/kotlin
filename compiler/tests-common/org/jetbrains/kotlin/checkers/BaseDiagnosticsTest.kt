@@ -328,7 +328,7 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
 
         val MARK_DYNAMIC_CALLS_DIRECTIVE = "MARK_DYNAMIC_CALLS"
 
-        private fun parseLanguageVersionSettings(directiveMap: Map<String, String>): LanguageVersionSettings? {
+        fun parseLanguageVersionSettings(directiveMap: Map<String, String>): LanguageVersionSettings? {
             val apiVersionString = directiveMap[API_VERSION_DIRECTIVE]
             val directives = directiveMap[LANGUAGE_DIRECTIVE]
             if (apiVersionString == null && directives == null) return null
