@@ -88,12 +88,13 @@ private fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, si
     val memberName = member.name
 
     if (memberName != null && !file.isContentsLoaded) {
+        val classNames = member.classNames()
         val container: KtDeclarationContainer? = when {
-            relativeClassName.isEmpty() ->
+            classNames.isEmpty() ->
                 file
             else -> {
                 val topClassOrObject = file.declarations.singleOrNull() as? KtClassOrObject
-                relativeClassName.fold(topClassOrObject) { classOrObject, name ->
+                classNames.fold(topClassOrObject) { classOrObject, name ->
                     classOrObject?.declarations?.singleOrNull { it.name == name.asString() } as? KtClassOrObject
                 }
             }
@@ -102,7 +103,10 @@ private fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, si
         if (container != null) {
             val matchedDeclarations = container.declarations.filter { it.name == memberName }
             when (matchedDeclarations.size) {
-                0 -> return null // TODO: Check
+                0 -> {
+                    // TODO: Check
+                    return null
+                }
                 1 -> return matchedDeclarations.first()
                 else -> {
                     // Many declarations found, search with decompiled text
@@ -124,11 +128,15 @@ private fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, si
 private data class ClassNameAndSignature(val relativeClassName: List<Name>, val memberSignature: MemberSignature)
 
 private fun PsiMember.relativeClassName(): List<Name> {
-    return generateSequence(this.containingClass) { it.containingClass }.toList().dropLast(1).reversed().map { Name.identifier(it.name!!) }
+    return classNames().drop(1)
 }
 
 private fun ClassDescriptor.relativeClassName(): List<Name> {
     return classId!!.relativeClassName.pathSegments().drop(1)
+}
+
+private fun PsiMember.classNames(): List<Name> {
+    return generateSequence(this.containingClass) { it.containingClass }.toList().reversed().map { Name.identifier(it.name!!) }
 }
 
 private fun ClassDescriptor.desc(): String = "L" + JvmClassName.byClassId(classId!!).internalName + ";"
