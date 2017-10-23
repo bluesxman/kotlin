@@ -360,7 +360,7 @@ public class CheckerTestUtil {
         return iterator.hasNext() ? iterator.next() : null;
     }
 
-    public static String parseDiagnosedRanges(String text, List<DiagnosedRange> result) {
+    public static String parseDiagnosedRanges(String text, List<DiagnosedRange> result, boolean stripDiagnosticsFromOldInference) {
         Matcher matcher = RANGE_START_OR_END_PATTERN.matcher(text);
 
         Stack<DiagnosedRange> opened = new Stack<>();
@@ -377,10 +377,20 @@ public class CheckerTestUtil {
                 Matcher diagnosticTypeMatcher = INDIVIDUAL_DIAGNOSTIC_PATTERN.matcher(matchedText);
                 DiagnosedRange range = new DiagnosedRange(effectiveOffset);
                 while (diagnosticTypeMatcher.find()) {
-                    range.addDiagnostic(diagnosticTypeMatcher.group());
+                    TextDiagnostic diagnostic = TextDiagnostic.parseDiagnostic(diagnosticTypeMatcher.group());
+                    if (stripDiagnosticsFromOldInference && diagnostic.withNewInference) {
+                        range.addDiagnostic(diagnosticTypeMatcher.group());
+                    }
+
+                    if (!stripDiagnosticsFromOldInference && !diagnostic.withNewInference) {
+                        range.addDiagnostic(diagnosticTypeMatcher.group());
+                    }
                 }
                 opened.push(range);
-                result.add(range);
+
+                if (!range.diagnostics.isEmpty()) {
+                    result.add(range);
+                }
             }
             offsetCompensation += matchedText.length();
         }
@@ -848,6 +858,10 @@ public class CheckerTestUtil {
 
         public void setEnd(int end) {
             this.end = end;
+        }
+
+        public void addDiagnostic(TextDiagnostic diagnostic) {
+            diagnostics.add(diagnostic);
         }
 
         public void addDiagnostic(String diagnostic) {

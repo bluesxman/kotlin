@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ import java.util.regex.Pattern;
 
 import static org.jetbrains.kotlin.cli.common.output.outputUtils.OutputUtilsKt.writeAllTo;
 import static org.jetbrains.kotlin.codegen.CodegenTestUtil.*;
-import static org.jetbrains.kotlin.codegen.TestUtilsKt.*;
+import static org.jetbrains.kotlin.codegen.TestUtilsKt.extractUrls;
 import static org.jetbrains.kotlin.test.KotlinTestUtils.getAnnotationsJar;
 import static org.jetbrains.kotlin.test.clientserver.TestProcessServerKt.getBoxMethodOrNull;
 import static org.jetbrains.kotlin.test.clientserver.TestProcessServerKt.getGeneratedClass;
@@ -320,7 +320,7 @@ public abstract class CodegenTestCase extends KtUsefulTestCase {
         List<KtFile> ktFiles = new ArrayList<>(files.size());
         for (TestFile file : files) {
             if (file.name.endsWith(".kt")) {
-                String content = CheckerTestUtil.parseDiagnosedRanges(file.content, new ArrayList<>(0));
+                String content = CheckerTestUtil.parseDiagnosedRanges(file.content, new ArrayList<>(0), false);
                 ktFiles.add(KotlinTestUtils.createFile(file.name, content, project));
             }
         }

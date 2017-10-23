@@ -150,7 +150,7 @@ public class CheckerTestUtilTest extends KotlinTestWithEnvironment {
             ).toString();
 
             List<DiagnosedRange> diagnosedRanges = Lists.newArrayList();
-            CheckerTestUtil.parseDiagnosedRanges(expectedText, diagnosedRanges);
+            CheckerTestUtil.parseDiagnosedRanges(expectedText, diagnosedRanges, false);
 
             List<ActualDiagnostic> actualDiagnostics =
                     CheckerTestUtil.getDiagnosticsIncludingSyntaxErrors(bindingContext, psiFile, false, null, null, false);

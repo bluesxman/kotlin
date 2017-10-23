@@ -36,6 +36,7 @@ import org.jetbrains.kotlin.psi.KtDeclaration
 import org.jetbrains.kotlin.psi.KtFile
 import org.jetbrains.kotlin.resolve.BindingContext
 import org.jetbrains.kotlin.resolve.MultiTargetPlatform
+import org.jetbrains.kotlin.test.InTextDirectivesUtils
 import org.jetbrains.kotlin.test.KotlinTestUtils
 import org.jetbrains.kotlin.utils.addIfNotNull
 import org.junit.Assert
@@ -157,7 +158,9 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
             }
             else {
                 this.expectedText = textWithMarkers
-                this.clearText = CheckerTestUtil.parseDiagnosedRanges(addExtras(expectedText), diagnosedRanges)
+                val newInferenceEnabled = (customLanguageVersionSettings ?: LanguageVersionSettingsImpl.DEFAULT).supportsFeature(LanguageFeature.NewInference)
+                val stripOldDiagnostics = InTextDirectivesUtils.isDirectiveDefined(textWithMarkers, "// WITH_NEW_INFERENCE") && newInferenceEnabled
+                this.clearText = CheckerTestUtil.parseDiagnosedRanges(addExtras(expectedText), diagnosedRanges, stripOldDiagnostics)
                 this.createKtFile = lazy { TestCheckerUtil.createCheckAndReturnPsiFile(fileName, clearText, project) }
             }
         }
@@ -208,7 +211,8 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
                 bindingContext: BindingContext,
                 implementingModulesBindings: List<Pair<MultiTargetPlatform, BindingContext>>,
                 actualText: StringBuilder,
-                skipJvmSignatureDiagnostics: Boolean
+                skipJvmSignatureDiagnostics: Boolean,
+                newInferenceDirectiveDefined: Boolean
         ): Boolean {
             val ktFile = this.ktFile
             if (ktFile == null) {
@@ -224,7 +228,7 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
                 computeJvmSignatureDiagnostics(bindingContext)
 
             val ok = booleanArrayOf(true)
-            val withNewInference = customLanguageVersionSettings?.supportsFeature(LanguageFeature.NewInference) ?: false
+            val withNewInference = (customLanguageVersionSettings ?: LanguageVersionSettingsImpl.DEFAULT).supportsFeature(LanguageFeature.NewInference)
             val diagnostics = ContainerUtil.filter(
                     CheckerTestUtil.getDiagnosticsIncludingSyntaxErrors(
                             bindingContext, implementingModulesBindings, ktFile, markDynamicCalls, dynamicCallDescriptors, withNewInference
@@ -274,7 +278,7 @@ abstract class BaseDiagnosticsTest : KotlinMultiFileTestWithJava<TestModule, Tes
             for (declaration in declarations) {
                 val diagnostics = getJvmSignatureDiagnostics(declaration, bindingContext.diagnostics,
                                                              GlobalSearchScope.allScope(project)) ?: continue
-                val withNewInference = customLanguageVersionSettings?.supportsFeature(LanguageFeature.NewInference) ?: false
+                val withNewInference = (customLanguageVersionSettings ?: LanguageVersionSettingsImpl.DEFAULT).supportsFeature(LanguageFeature.NewInference)
                 jvmSignatureDiagnostics.addAll(diagnostics.forElement(declaration).map { ActualDiagnostic(it, null, withNewInference) })
             }
             return jvmSignatureDiagnostics

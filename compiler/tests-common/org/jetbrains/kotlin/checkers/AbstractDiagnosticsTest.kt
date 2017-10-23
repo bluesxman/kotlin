@@ -140,8 +140,9 @@ abstract class AbstractDiagnosticsTest : BaseDiagnosticsTest() {
         }
 
         var exceptionFromDescriptorValidation: Throwable? = null
+        val originalTestFile = testDataFile.readText()
         try {
-            val expectedFile = if (InTextDirectivesUtils.isDirectiveDefined(testDataFile.readText(), "// JAVAC_EXPECTED_FILE")
+            val expectedFile = if (InTextDirectivesUtils.isDirectiveDefined(originalTestFile, "// JAVAC_EXPECTED_FILE")
                                    && environment.configuration.getBoolean(JVMConfigurationKeys.USE_JAVAC)) {
                 File(FileUtil.getNameWithoutExtension(testDataFile.absolutePath) + ".javac.txt")
             } else {
@@ -156,6 +157,7 @@ abstract class AbstractDiagnosticsTest : BaseDiagnosticsTest() {
         // main checks
         var ok = true
 
+        val newInferenceDirectiveDefined = InTextDirectivesUtils.isDirectiveDefined(originalTestFile, "// WITH_NEW_INFERENCE")
         val actualText = StringBuilder()
         for (testFile in files) {
             val module = testFile.module
@@ -171,7 +173,8 @@ abstract class AbstractDiagnosticsTest : BaseDiagnosticsTest() {
             }
             ok = ok and testFile.getActualText(
                     moduleBindings[module]!!, implementingModulesBindings, actualText,
-                    shouldSkipJvmSignatureDiagnostics(groupedByModule) || isCommonModule
+                    shouldSkipJvmSignatureDiagnostics(groupedByModule) || isCommonModule,
+                    newInferenceDirectiveDefined
             )
         }
 
