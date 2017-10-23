@@ -79,7 +79,8 @@ enum class LanguageFeature(
     Coroutines(KOTLIN_1_1, ApiVersion.KOTLIN_1_1, "https://kotlinlang.org/docs/diagnostics/experimental-coroutines", State.ENABLED_WITH_WARNING),
 
     MultiPlatformProjects(sinceVersion = null, defaultState = State.DISABLED),
-    NewInference(sinceVersion = KOTLIN_1_2),
+
+    NewInference(sinceVersion = KOTLIN_1_2, defaultState = State.DISABLED),
 
     ;
 
