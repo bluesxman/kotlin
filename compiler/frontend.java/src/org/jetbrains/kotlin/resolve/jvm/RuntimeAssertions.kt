@@ -18,6 +18,7 @@ package org.jetbrains.kotlin.resolve.jvm
 
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.psi.PsiElement
+import org.jetbrains.kotlin.config.LanguageFeature
 import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.*
 import org.jetbrains.kotlin.load.java.typeEnhancement.hasEnhancedNullability
@@ -154,73 +155,70 @@ object RuntimeAssertionsOnDeclarationBodyChecker {
             bindingTrace: BindingTrace,
             languageVersionSettings: LanguageVersionSettings
     ) {
+        if (!languageVersionSettings.supportsFeature(LanguageFeature.StrictJavaNullabilityAssertions)) return
+
         when {
             declaration is KtProperty && descriptor is VariableDescriptor ->
-                checkLocalVariable(declaration, descriptor, bindingTrace, languageVersionSettings)
+                checkLocalVariable(declaration, descriptor, bindingTrace)
             declaration is KtFunction && descriptor is FunctionDescriptor ->
-                checkFunction(declaration, descriptor, bindingTrace, languageVersionSettings)
+                checkFunction(declaration, descriptor, bindingTrace)
             declaration is KtProperty && descriptor is PropertyDescriptor ->
-                checkProperty(declaration, descriptor, bindingTrace, languageVersionSettings)
+                checkProperty(declaration, descriptor, bindingTrace)
             declaration is KtPropertyAccessor && descriptor is PropertyAccessorDescriptor ->
-                checkPropertyAccessor(declaration, descriptor, bindingTrace, languageVersionSettings)
+                checkPropertyAccessor(declaration, descriptor, bindingTrace)
         }
     }
 
     private fun checkLocalVariable(
             declaration: KtProperty,
             descriptor: VariableDescriptor,
-            bindingTrace: BindingTrace,
-            languageVersionSettings: LanguageVersionSettings
+            bindingTrace: BindingTrace
     ) {
         if (declaration.typeReference != null) return
 
-        checkNullabilityAssertion(declaration.initializer ?: return, descriptor.type, bindingTrace, languageVersionSettings)
+        checkNullabilityAssertion(declaration.initializer ?: return, descriptor.type, bindingTrace)
     }
 
     private fun checkFunction(
             declaration: KtFunction,
             descriptor: FunctionDescriptor,
-            bindingTrace: BindingTrace,
-            languageVersionSettings: LanguageVersionSettings
+            bindingTrace: BindingTrace
     ) {
         if (declaration.typeReference != null || declaration.hasBlockBody()) return
 
         checkNullabilityAssertion(declaration.bodyExpression ?: return, descriptor.returnType ?: return,
-                                  bindingTrace, languageVersionSettings)
+                                  bindingTrace)
     }
 
     private fun checkProperty(
             declaration: KtProperty,
             descriptor: PropertyDescriptor,
-            bindingTrace: BindingTrace,
-            languageVersionSettings: LanguageVersionSettings
+            bindingTrace: BindingTrace
     ) {
         if (declaration.typeReference != null) return
 
         // TODO nullability assertion on delegate initialization expression, see KT-20823
         if (declaration.hasDelegateExpression()) return
 
-        checkNullabilityAssertion(declaration.initializer ?: return, descriptor.type, bindingTrace, languageVersionSettings)
+        checkNullabilityAssertion(declaration.initializer ?: return, descriptor.type, bindingTrace)
     }
 
     private fun checkPropertyAccessor(
             declaration: KtPropertyAccessor,
             descriptor: PropertyAccessorDescriptor,
-            bindingTrace: BindingTrace,
-            languageVersionSettings: LanguageVersionSettings
+            bindingTrace: BindingTrace
     ) {
         if (declaration.property.typeReference != null || declaration.hasBlockBody()) return
 
         checkNullabilityAssertion(declaration.bodyExpression ?: return, descriptor.correspondingProperty.type,
-                                  bindingTrace, languageVersionSettings)
+                                  bindingTrace)
     }
 
 
     private fun checkNullabilityAssertion(
             expression: KtExpression,
             declarationType: KotlinType,
-            bindingTrace: BindingTrace,
-            languageVersionSettings: LanguageVersionSettings
+            bindingTrace: BindingTrace
     ) {
         if (declarationType.isEffectivelyNullable()) return
 

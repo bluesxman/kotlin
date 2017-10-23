@@ -16,6 +16,8 @@
 
 package org.jetbrains.kotlin.resolve.jvm
 
+import org.jetbrains.kotlin.config.LanguageFeature
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.annotations.FilteredAnnotations
 import org.jetbrains.kotlin.load.java.JvmAnnotationNames
 import org.jetbrains.kotlin.resolve.BindingTrace
@@ -25,13 +27,21 @@ import org.jetbrains.kotlin.types.WrappedTypeFactory
 import org.jetbrains.kotlin.types.typeUtil.replaceAnnotations
 
 object JvmDeclarationReturnTypeSanitizer : DeclarationReturnTypeSanitizer {
-    override fun sanitizeReturnType(inferred: KotlinType, wrappedTypeFactory: WrappedTypeFactory, trace: BindingTrace): KotlinType =
-            // NB this deferred type wrapper is required to avoid recursion in declaration type resolution
-            wrappedTypeFactory.createRecursionIntolerantDeferredType(trace) {
-                // NB can't check for presence of EnhancedNullability here,
-                // because it will also cause recursion in declaration type resolution.
-                inferred.replaceAnnotations(FilteredAnnotations(inferred.annotations) {
-                    it != JvmAnnotationNames.ENHANCED_NULLABILITY_ANNOTATION
-                })
+    override fun sanitizeReturnType(
+            inferred: KotlinType,
+            wrappedTypeFactory: WrappedTypeFactory,
+            trace: BindingTrace,
+            languageVersionSettings: LanguageVersionSettings
+    ): KotlinType =
+            if (languageVersionSettings.supportsFeature(LanguageFeature.StrictJavaNullabilityAssertions)) {
+                // NB this deferred type wrapper is required to avoid recursion in declaration type resolution
+                wrappedTypeFactory.createRecursionIntolerantDeferredType(trace) {
+                    // NB can't check for presence of EnhancedNullability here,
+                    // because it will also cause recursion in declaration type resolution.
+                    inferred.replaceAnnotations(FilteredAnnotations(inferred.annotations) {
+                        it != JvmAnnotationNames.ENHANCED_NULLABILITY_ANNOTATION
+                    })
+                }
             }
+            else inferred
 }

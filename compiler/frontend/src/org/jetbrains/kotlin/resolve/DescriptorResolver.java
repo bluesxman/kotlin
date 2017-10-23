@@ -1157,7 +1157,7 @@ public class DescriptorResolver {
             PreliminaryDeclarationVisitor.Companion.createForDeclaration(function, trace, languageVersionSettings);
             KotlinType type = expressionTypingServices.getBodyExpressionType(trace, scope, dataFlowInfo, function, functionDescriptor);
             KotlinType publicType = transformAnonymousTypeIfNeeded(functionDescriptor, function, type, trace);
-            KotlinType sanitizedType = declarationReturnTypeSanitizer.sanitizeReturnType(publicType, wrappedTypeFactory, trace);
+            KotlinType sanitizedType = declarationReturnTypeSanitizer.sanitizeReturnType(publicType, wrappedTypeFactory, trace, languageVersionSettings);
             UnwrappedType approximatedType = typeApproximator.approximateDeclarationType(sanitizedType, false);
             functionsTypingVisitor.checkTypesForReturnStatements(function, trace, approximatedType);
             return approximatedType;

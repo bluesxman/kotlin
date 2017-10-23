@@ -16,13 +16,24 @@
 
 package org.jetbrains.kotlin.resolve
 
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.types.KotlinType
 import org.jetbrains.kotlin.types.WrappedTypeFactory
 
 interface DeclarationReturnTypeSanitizer {
-    fun sanitizeReturnType(inferred: KotlinType, wrappedTypeFactory: WrappedTypeFactory, trace: BindingTrace): KotlinType
+    fun sanitizeReturnType(
+            inferred: KotlinType,
+            wrappedTypeFactory: WrappedTypeFactory,
+            trace: BindingTrace,
+            languageVersionSettings: LanguageVersionSettings
+    ): KotlinType
 
     object Default : DeclarationReturnTypeSanitizer {
-        override fun sanitizeReturnType(inferred: KotlinType, wrappedTypeFactory: WrappedTypeFactory, trace: BindingTrace) = inferred
+        override fun sanitizeReturnType(
+                inferred: KotlinType,
+                wrappedTypeFactory: WrappedTypeFactory,
+                trace: BindingTrace,
+                languageVersionSettings: LanguageVersionSettings
+        ) = inferred
     }
 }

@@ -16,6 +16,7 @@
 
 package org.jetbrains.kotlin.resolve
 
+import org.jetbrains.kotlin.config.LanguageVersionSettings
 import org.jetbrains.kotlin.descriptors.VariableDescriptorWithAccessors
 import org.jetbrains.kotlin.descriptors.impl.VariableDescriptorWithInitializerImpl
 import org.jetbrains.kotlin.diagnostics.Errors
@@ -40,7 +41,8 @@ class VariableTypeAndInitializerResolver(
         private val delegatedPropertyResolver: DelegatedPropertyResolver,
         private val wrappedTypeFactory: WrappedTypeFactory,
         private val typeApproximator: TypeApproximator,
-        private val declarationReturnTypeSanitizer: DeclarationReturnTypeSanitizer
+        private val declarationReturnTypeSanitizer: DeclarationReturnTypeSanitizer,
+        private val languageVersionSettings: LanguageVersionSettings
 ) {
     companion object {
         @JvmField
@@ -155,7 +157,7 @@ class VariableTypeAndInitializerResolver(
             local: Boolean
     ): KotlinType {
         val inferredType = expressionTypingServices.safeGetType(scope, initializer, TypeUtils.NO_EXPECTED_TYPE, dataFlowInfo, trace)
-        val sanitizedType = declarationReturnTypeSanitizer.sanitizeReturnType(inferredType, wrappedTypeFactory, trace)
+        val sanitizedType = declarationReturnTypeSanitizer.sanitizeReturnType(inferredType, wrappedTypeFactory, trace, languageVersionSettings)
         return approximateType(sanitizedType, local)
     }
 
