@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2016 JetBrains s.r.o.
+ * Copyright 2010-2017 JetBrains s.r.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -80,7 +80,7 @@ public class CheckerTestUtil {
     private static final String IGNORE_DIAGNOSTIC_PARAMETER = "IGNORE";
     private static final String SHOULD_BE_ESCAPED = "\\)\\(;";
     private static final String DIAGNOSTIC_PARAMETER = "(?:(?:\\\\[" + SHOULD_BE_ESCAPED + "])|[^" + SHOULD_BE_ESCAPED + "])+";
-    private static final String INDIVIDUAL_DIAGNOSTIC = "(\\w+:)?(\\w+)(\\(" + DIAGNOSTIC_PARAMETER + "(;\\s*" + DIAGNOSTIC_PARAMETER + ")*\\))?";
+    private static final String INDIVIDUAL_DIAGNOSTIC = "(\\w+\\|)?(\\w+:)?(\\w+)(\\(" + DIAGNOSTIC_PARAMETER + "(;\\s*" + DIAGNOSTIC_PARAMETER + ")*\\))?";
     private static final Pattern RANGE_START_OR_END_PATTERN = Pattern.compile("(<!" +
                                                                               INDIVIDUAL_DIAGNOSTIC + "(,\\s*" +
                                                                               INDIVIDUAL_DIAGNOSTIC + ")*!>)|(<!>)");
@@ -93,10 +93,12 @@ public class CheckerTestUtil {
             @NotNull List<Pair<MultiTargetPlatform, BindingContext>> implementingModulesBindings,
             @NotNull PsiElement root,
             boolean markDynamicCalls,
-            @Nullable List<DeclarationDescriptor> dynamicCallDescriptors
+            @Nullable List<DeclarationDescriptor> dynamicCallDescriptors,
+            boolean withNewInference
+
     ) {
         List<ActualDiagnostic> result =
-                getDiagnosticsIncludingSyntaxErrors(bindingContext, root, markDynamicCalls, dynamicCallDescriptors, null);
+                getDiagnosticsIncludingSyntaxErrors(bindingContext, root, markDynamicCalls, dynamicCallDescriptors, null, withNewInference);
 
         List<Pair<MultiTargetPlatform, BindingContext>> sortedBindings = CollectionsKt.sortedWith(
                 implementingModulesBindings,
@@ -109,7 +111,7 @@ public class CheckerTestUtil {
 
             result.addAll(getDiagnosticsIncludingSyntaxErrors(
                     binding.getSecond(), root, markDynamicCalls, dynamicCallDescriptors,
-                    ((MultiTargetPlatform.Specific) platform).getPlatform()
+                    ((MultiTargetPlatform.Specific) platform).getPlatform(), withNewInference
             ));
         }
 
@@ -122,20 +124,21 @@ public class CheckerTestUtil {
             @NotNull PsiElement root,
             boolean markDynamicCalls,
             @Nullable List<DeclarationDescriptor> dynamicCallDescriptors,
-            @Nullable String platform
+            @Nullable String platform,
+            boolean withNewInference
     ) {
         List<ActualDiagnostic> diagnostics = new ArrayList<>();
         for (Diagnostic diagnostic : bindingContext.getDiagnostics().all()) {
             if (PsiTreeUtil.isAncestor(root, diagnostic.getPsiElement(), false)) {
-                diagnostics.add(new ActualDiagnostic(diagnostic, platform));
+                diagnostics.add(new ActualDiagnostic(diagnostic, platform, withNewInference));
             }
         }
 
         for (PsiErrorElement errorElement : AnalyzingUtils.getSyntaxErrorRanges(root)) {
-            diagnostics.add(new ActualDiagnostic(new SyntaxErrorDiagnostic(errorElement), platform));
+            diagnostics.add(new ActualDiagnostic(new SyntaxErrorDiagnostic(errorElement), platform, withNewInference));
         }
 
-        diagnostics.addAll(getDebugInfoDiagnostics(root, bindingContext, markDynamicCalls, dynamicCallDescriptors, platform));
+        diagnostics.addAll(getDebugInfoDiagnostics(root, bindingContext, markDynamicCalls, dynamicCallDescriptors, platform, withNewInference));
         return diagnostics;
     }
 
@@ -146,7 +149,8 @@ public class CheckerTestUtil {
             @NotNull BindingContext bindingContext,
             boolean markDynamicCalls,
             @Nullable List<DeclarationDescriptor> dynamicCallDescriptors,
-            @Nullable String platform
+            @Nullable String platform,
+            boolean withNewInference
     ) {
         List<ActualDiagnostic> debugAnnotations = new ArrayList<>();
 
@@ -178,7 +182,7 @@ public class CheckerTestUtil {
             }
 
             private void newDiagnostic(KtElement element, DebugInfoDiagnosticFactory factory) {
-                debugAnnotations.add(new ActualDiagnostic(new DebugInfoDiagnostic(element, factory), platform));
+                debugAnnotations.add(new ActualDiagnostic(new DebugInfoDiagnostic(element, factory), platform, withNewInference));
             }
         });
 
@@ -193,7 +197,8 @@ public class CheckerTestUtil {
         )) {
             for (KtExpression expression : bindingContext.getSliceContents(factory.getFirst()).keySet()) {
                 if (PsiTreeUtil.isAncestor(root, expression, false)) {
-                    debugAnnotations.add(new ActualDiagnostic(new DebugInfoDiagnostic(expression, factory.getSecond()), platform));
+                    debugAnnotations.add(new ActualDiagnostic(new DebugInfoDiagnostic(expression, factory.getSecond()), platform,
+                                                              withNewInference));
                 }
             }
         }
@@ -643,10 +648,12 @@ public class CheckerTestUtil {
     public static class ActualDiagnostic {
         public final Diagnostic diagnostic;
         public final String platform;
+        public final boolean withNewInference;
 
-        ActualDiagnostic(@NotNull Diagnostic diagnostic, @Nullable String platform) {
+        ActualDiagnostic(@NotNull Diagnostic diagnostic, @Nullable String platform, boolean withNewInference) {
             this.diagnostic = diagnostic;
             this.platform = platform;
+            this.withNewInference = withNewInference;
         }
 
         @NotNull
@@ -666,17 +673,21 @@ public class CheckerTestUtil {
             ActualDiagnostic other = (ActualDiagnostic) obj;
             // '==' on diagnostics is intentional here
             return other.diagnostic == diagnostic &&
-                   (other.platform == null ? platform == null : other.platform.equals(platform));
+                   (other.platform == null ? platform == null : other.platform.equals(platform)) &&
+                   (other.withNewInference == withNewInference);
         }
 
         @Override
         public int hashCode() {
-            return System.identityHashCode(diagnostic) * 31 + (platform != null ? platform.hashCode() : 0);
+            int result = System.identityHashCode(diagnostic);
+            result = 31 * result + (platform != null ? platform.hashCode() : 0);
+            result = 31 * result + (withNewInference ? 0 : 1);
+            return result;
         }
 
         @Override
         public String toString() {
-            return (platform != null ? platform + ":" : "") + diagnostic.toString();
+            return (withNewInference ? "NI|" : "") + (platform != null ? platform + ":" : "") + diagnostic.toString();
         }
     }
 
@@ -687,21 +698,25 @@ public class CheckerTestUtil {
             if (!matcher.find())
                 throw new IllegalArgumentException("Could not parse diagnostic: " + text);
 
-            String platformPrefix = matcher.group(1);
-            assert platformPrefix == null || platformPrefix.endsWith(":") : platformPrefix;
-            String platform = platformPrefix == null ? null : StringsKt.substringBeforeLast(platformPrefix, ":", platformPrefix);
+            boolean withNewInference = "NI".equals(extractDataBefore(matcher.group(1), "|"));
+            String platform = extractDataBefore(matcher.group(2), ":");
 
-            String name = matcher.group(2);
-            String parameters = matcher.group(3);
+            String name = matcher.group(3);
+            String parameters = matcher.group(4);
             if (parameters == null) {
-                return new TextDiagnostic(name, platform, null);
+                return new TextDiagnostic(name, platform, null, withNewInference);
             }
 
             List<String> parsedParameters = new SmartList<>();
             Matcher parametersMatcher = INDIVIDUAL_PARAMETER_PATTERN.matcher(parameters);
             while (parametersMatcher.find())
                 parsedParameters.add(unescape(parametersMatcher.group().trim()));
-            return new TextDiagnostic(name, platform, parsedParameters);
+            return new TextDiagnostic(name, platform, parsedParameters, withNewInference);
+        }
+
+        private static String extractDataBefore(@Nullable String prefix, @NotNull String anchor) {
+            assert prefix == null || prefix.endsWith(anchor) : prefix;
+            return prefix == null ? null : StringsKt.substringBeforeLast(prefix, anchor, prefix);
         }
 
         private static @NotNull String escape(@NotNull String s) {
@@ -722,9 +737,9 @@ public class CheckerTestUtil {
                 //noinspection unchecked
                 Object[] renderParameters = ((AbstractDiagnosticWithParametersRenderer) renderer).renderParameters(diagnostic);
                 List<String> parameters = ContainerUtil.map(renderParameters, Object::toString);
-                return new TextDiagnostic(diagnosticName, actualDiagnostic.platform, parameters);
+                return new TextDiagnostic(diagnosticName, actualDiagnostic.platform, parameters, actualDiagnostic.withNewInference);
             }
-            return new TextDiagnostic(diagnosticName, actualDiagnostic.platform, null);
+            return new TextDiagnostic(diagnosticName, actualDiagnostic.platform, null, actualDiagnostic.withNewInference);
         }
 
         @NotNull
@@ -733,11 +748,13 @@ public class CheckerTestUtil {
         private final String platform;
         @Nullable
         private final List<String> parameters;
+        private final boolean withNewInference;
 
-        public TextDiagnostic(@NotNull String name, @Nullable String platform, @Nullable List<String> parameters) {
+        public TextDiagnostic(@NotNull String name, @Nullable String platform, @Nullable List<String> parameters, boolean withNewInference) {
             this.name = name;
             this.platform = platform;
             this.parameters = parameters;
+            this.withNewInference = withNewInference;
         }
 
         @Nullable
@@ -755,6 +772,10 @@ public class CheckerTestUtil {
             return parameters;
         }
 
+        public boolean isWithNewInference() {
+            return withNewInference;
+        }
+
         @Override
         public boolean equals(Object o) {
             if (this == o) return true;
@@ -765,6 +786,7 @@ public class CheckerTestUtil {
             if (!name.equals(that.name)) return false;
             if (platform != null ? !platform.equals(that.platform) : that.platform != null) return false;
             if (parameters != null ? !parameters.equals(that.parameters) : that.parameters != null) return false;
+            if (withNewInference != that.withNewInference) return false;
 
             return true;
         }
@@ -774,12 +796,16 @@ public class CheckerTestUtil {
             int result = name.hashCode();
             result = 31 * result + (platform != null ? platform.hashCode() : 0);
             result = 31 * result + (parameters != null ? parameters.hashCode() : 0);
+            result = 31 * result + (withNewInference ? 0 : 1);
             return result;
         }
 
         @NotNull
         public String asString() {
             StringBuilder result = new StringBuilder();
+            if (withNewInference) {
+                result.append("NI|");
+            }
             if (platform != null) {
                 result.append(platform);
                 result.append(":");
