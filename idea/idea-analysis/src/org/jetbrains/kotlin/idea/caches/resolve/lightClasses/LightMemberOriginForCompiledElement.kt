@@ -89,33 +89,48 @@ private fun findDeclarationInCompiledFile(file: KtClsFile, member: PsiMember, si
 
     if (memberName != null && !file.isContentsLoaded) {
         val classNames = member.classNames()
-        val container: KtDeclarationContainer? = when {
-            classNames.isEmpty() ->
-                file
-            else -> {
-                val topClassOrObject = file.declarations.singleOrNull() as? KtClassOrObject
-                classNames.fold(topClassOrObject) { classOrObject, name ->
-                    classOrObject?.declarations?.singleOrNull { it.name == name.asString() } as? KtClassOrObject
+        val allMatchedInFQName = findInStubs(file, member, classNames)
+
+        when (allMatchedInFQName.size) {
+            0 -> {
+                val matchedTopLevel = findInStubs(file, member, relativeClassName).singleOrNull()
+                if (matchedTopLevel != null) {
+                    return matchedTopLevel
                 }
             }
-        }
-
-        if (container != null) {
-            val matchedDeclarations = container.declarations.filter { it.name == memberName }
-            when (matchedDeclarations.size) {
-                0 -> {
-                    // TODO: Check
-                    return null
+            1 -> {
+                val allMatchedTopLevel = findInStubs(file, member, relativeClassName)
+                if (allMatchedTopLevel.isEmpty()) {
+                    return allMatchedInFQName.first()
                 }
-                1 -> return matchedDeclarations.first()
-                else -> {
-                    // Many declarations found, search with decompiled text
-                }
+            }
+            else -> {
+                // Many declarations found, search with decompiled text
             }
         }
     }
 
     return file.getDeclaration(ByJvmSignatureIndexer, key)
+}
+
+private fun findInStubs(file: KtClsFile, member: PsiMember, classNames: List<Name>): List<KtDeclaration> {
+    val container = findContainer(file, classNames) ?: return listOf()
+    val memberName = member.name
+
+    return container.declarations.filter { it.name == memberName }
+}
+
+private fun findContainer(file: KtClsFile, classNames: List<Name>): KtDeclarationContainer? {
+    return when {
+        classNames.isEmpty() ->
+            file
+        else -> {
+            val topClassOrObject = file.declarations.singleOrNull() as? KtClassOrObject
+            classNames.fold(topClassOrObject) { classOrObject, name ->
+                classOrObject?.declarations?.singleOrNull { it.name == name.asString() } as? KtClassOrObject
+            }
+        }
+    }
 }
 
 // this is convenient data structure for this purpose and is not supposed to be used outside this file
